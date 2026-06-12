@@ -175,16 +175,6 @@ var externalApps = []externalApp{
 		url:  "https://github.com/wizzomafizzo/MiSTer_GamesMenu/raw/main/gamesmenu.sh",
 		bin:  "gamesmenu.sh",
 	},
-	{
-		name: "tapto",
-		url:  "https://github.com/wizzomafizzo/tapto/releases/latest/download/tapto.sh",
-		bin:  "tapto.sh",
-	},
-	{
-		name: "taptui",
-		url:  "https://github.com/wizzomafizzo/tapto/releases/latest/download/taptui.sh",
-		bin:  "taptui.sh",
-	},
 }
 
 var scriptApps = []externalApp{
