@@ -10,48 +10,42 @@ on:
         description: 'Specify the tag for the release'
         required: true
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    env:
+      TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Set up QEMU for cross-platform builds
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image for ARM
         run: |
           docker buildx create --use
-          docker buildx build --platform linux/arm/v7 -t mrext/armbuild:${{ github.sha }} -f scripts/armbuild/Dockerfile .
+          docker buildx build --load --platform linux/arm/v7 -t mrext/armbuild:${{ github.sha }} -f scripts/armbuild/Dockerfile .
 
       - name: Run mage prepRelease
         run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace mrext/armbuild:${{ github.sha }} mage build prepRelease
+          docker run --rm --platform linux/arm/v7 -v ${{ github.workspace }}:/build mrext/armbuild:${{ github.sha }} mage prepRelease
 
-#      - name: Create Release
-#        id: create_release
-#        uses: actions/create-release@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          tag_name: ${{ github.event.inputs.tag }}
-#          release_name: Release ${{ github.event.inputs.tag }}
-#          body: |
-#            Release notes and details go here.
-#          draft: true
-#
-#      - name: Upload release assets
-#        id: upload-release-asset
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./_bin/releases/*
-#          asset_name: ${{ github.event.inputs.tag }}-${{ env.OS_NAME }}-${{ env.OS_ARCH }}-${{ github.sha }}-${{ github.run_number }}
-#          asset_content_type: application/octet-stream
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" _bin/releases/* --clobber
+          else
+            gh release create "$TAG_NAME" _bin/releases/* --target "$GITHUB_SHA" --title "$TAG_NAME" --notes ""
+          fi

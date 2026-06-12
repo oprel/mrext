@@ -249,11 +249,7 @@ func Build(appName string) {
 }
 
 func MakeArmImage() {
-	if runtime.GOOS != "linux" {
-		_ = sh.RunV("docker", "build", "--platform", "linux/arm/v7", "-t", armBuildImageName, armBuild)
-	} else {
-		_ = sh.RunV("sudo", "docker", "build", "--platform", "linux/arm/v7", "-t", armBuildImageName, armBuild)
-	}
+	_ = sh.RunV("docker", "build", "--platform", "linux/arm/v7", "-t", armBuildImageName, armBuild)
 }
 
 func Mister(appName string) {
@@ -262,11 +258,7 @@ func Mister(appName string) {
 	modCache := fmt.Sprintf("%s:%s", armModCache, "/home/build/go/pkg/mod")
 	_ = os.Mkdir(armModCache, 0755)
 	buildDir := fmt.Sprintf("%s:%s", cwd, "/build")
-	if runtime.GOOS != "linux" {
-		_ = sh.RunV("docker", "run", "--rm", "--platform", "linux/arm/v7", "-v", buildCache, "-v", modCache, "-v", buildDir, "--user", "1000:1000", armBuildImageName, "mage", "build", appName)
-	} else {
-		_ = sh.RunV("sudo", "docker", "run", "--rm", "--platform", "linux/arm/v7", "-v", buildCache, "-v", modCache, "-v", buildDir, "--user", "1000:1000", armBuildImageName, "mage", "build", appName)
-	}
+	_ = sh.RunV("docker", "run", "--rm", "--platform", "linux/arm/v7", "-v", buildCache, "-v", modCache, "-v", buildDir, "--user", "1000:1000", armBuildImageName, "mage", "build", appName)
 }
 
 func UpdateExternalApps() {
@@ -349,7 +341,11 @@ func Release(name string) {
 		os.Exit(1)
 	}
 
-	Mister(name)
+	if runtime.GOOS == "linux" && runtime.GOARCH == "arm" {
+		Build(name)
+	} else {
+		Mister(name)
+	}
 
 	rd := filepath.Join(releasesDir, a.name)
 	_ = os.MkdirAll(rd, 0755)
@@ -403,10 +399,15 @@ func PrepRelease() {
 		fmt.Println("Preparing release:", app.name)
 		sh.Copy(filepath.Join(binReleasesDir, app.bin), filepath.Join(cwd, "scripts", app.name, app.bin))
 	}
+	UpdateExternalApps()
+	for _, app := range externalApps {
+		fmt.Println("Preparing release:", app.name)
+		sh.Copy(filepath.Join(binReleasesDir, app.bin), filepath.Join(releasesDir, "external", app.bin))
+	}
 }
 
 func MakeKernelImage() {
-	_ = sh.RunV("sudo", "docker", "build", "-t", kernelBuildImageName, kernelBuild)
+	_ = sh.RunV("docker", "build", "-t", kernelBuildImageName, kernelBuild)
 }
 
 func Kernel() {
@@ -419,7 +420,7 @@ func Kernel() {
 		_ = sh.RunV("git", "-C", kernelRepoPath, "apply", path)
 	}
 
-	kCmd := sh.RunCmd("sudo", "docker", "run", "--rm", "-v", fmt.Sprintf("%s:%s", kernelRepoPath, "/build"), "--user", "1000:1000", kernelBuildImageName)
+	kCmd := sh.RunCmd("docker", "run", "--rm", "-v", fmt.Sprintf("%s:%s", kernelRepoPath, "/build"), "--user", "1000:1000", kernelBuildImageName)
 	_ = kCmd("make", "MiSTer_defconfig")
 	_ = kCmd("make", "modules")
 	_ = kCmd("make", "-j16", "zImage")
@@ -455,11 +456,7 @@ func MakeArmApp(name string) {
 		os.Exit(1)
 	}
 
-	if runtime.GOOS != "linux" {
-		_ = sh.RunV("docker", "run", "--rm", "--platform", "linux/arm/v7", "-v", buildDir+":/build", "--user", "1000:1000", armBuildImageName, "bash", "./"+buildScript)
-	} else {
-		_ = sh.RunV("sudo", "docker", "run", "--rm", "--platform", "linux/arm/v7", "-v", buildDir+":/build", "--user", "1000:1000", armBuildImageName, "bash", "./"+buildScript)
-	}
+	_ = sh.RunV("docker", "run", "--rm", "--platform", "linux/arm/v7", "-v", buildDir+":/build", "--user", "1000:1000", armBuildImageName, "bash", "./"+buildScript)
 }
 
 func Test() {

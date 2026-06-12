@@ -1,18 +1,24 @@
 name: Repo database creation
 on:
   workflow_dispatch:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Build and Release"]
+    types: [completed]
 
-permissions: write-all
+permissions:
+  contents: write
+
 jobs:
   mrext-repo:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     env:
       DB_ID: mrext/all
       GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
       - name: Get latest mrext release
         id: mrextreleaseinfo
         uses: cardinalby/git-get-release-action@v1
@@ -24,16 +30,11 @@ jobs:
         run: |
           DL_URL=https://github.com/wizzomafizzo/mrext/releases/download/${{ steps.mrextreleaseinfo.outputs.tag_name }}
           mkdir -p _bin/releases
-          curl -L ${DL_URL}/lastplayed.sh -o _bin/releases/lastplayed.sh
-          curl -L ${DL_URL}/launchseq.sh -o _bin/releases/launchseq.sh
-          curl -L ${DL_URL}/launchsync.sh -o _bin/releases/launchsync.sh
-          curl -L ${DL_URL}/nfc.sh -o _bin/releases/nfc.sh
-          curl -L ${DL_URL}/nfcui.sh -o _bin/releases/nfcui.sh
-          curl -L ${DL_URL}/playlog.sh -o _bin/releases/playlog.sh
-          curl -L ${DL_URL}/random.sh -o _bin/releases/random.sh
-          curl -L ${DL_URL}/remote.sh -o _bin/releases/remote.sh
-          curl -L ${DL_URL}/search.sh -o _bin/releases/search.sh
-          curl -L ${DL_URL}/pocketbackup.sh -o _bin/releases/pocketbackup.sh
+          for file in lastplayed.sh launchseq.sh launchsync.sh playlog.sh random.sh remote.sh search.sh pocketbackup.sh; do
+            curl -fsSL "$DL_URL/$file" -o "_bin/releases/$file"
+          done
+      - name: Update external scripts
+        run: go run github.com/magefile/mage updateExternalApps
       - name: Create databases
         run: |
           cp scripts/generate_repo.py .

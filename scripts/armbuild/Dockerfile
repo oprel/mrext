@@ -10,7 +10,7 @@ RUN apt-get install -y ca-certificates openssl && \
     update-ca-certificates
 
 # install app dependencies
-RUN apt-get install build-essential git curl wget -y && \
+RUN apt-get install build-essential git curl wget pkg-config upx-ucl -y && \
     apt-get install libsqlite3-dev libncurses-dev linux-source -y
 
 # manually install modern Go for 32-bit ARM (Mage needs Go 1.18+, Bullseye only has 1.15)
@@ -20,6 +20,7 @@ RUN wget https://go.dev/dl/go1.21.9.linux-armv6l.tar.gz && \
 
 # add Go to the system path
 ENV PATH="/usr/local/go/bin:${PATH}"
+ENV UPX_BIN="upx-ucl"
 
 # install mplayer dependencies
 RUN apt-get install -y libasound2-dev libasound2 liblapack-dev liblapack3
