@@ -1,65 +1,65 @@
 {
     "db_id": "mrext/all",
-    "timestamp": 1781230156,
+    "timestamp": 1781320187,
     "files": {
         "Scripts/lastplayed.sh": {
-            "hash": "85214aad3c564f61792937eadc1a06fc",
+            "hash": "696f537ed0bb03465a9b7550164da7f4",
             "size": 3193480,
-            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-4/lastplayed.sh",
+            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-5/lastplayed.sh",
             "reboot": false,
             "tags": [
                 "lastplayed"
             ]
         },
         "Scripts/launchseq.sh": {
-            "hash": "ee90889f114126d78fc244a2e6d24548",
+            "hash": "0871db9046fa6d1fc787bc5d4e974578",
             "size": 2596072,
-            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-4/launchseq.sh",
+            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-5/launchseq.sh",
             "reboot": false,
             "tags": [
                 "launchseq"
             ]
         },
         "Scripts/launchsync.sh": {
-            "hash": "c31b3a3daff8435151cbed5822fcfd88",
+            "hash": "635f33589bc521ea947c6fd4c1365af8",
             "size": 4585240,
-            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-4/launchsync.sh",
+            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-5/launchsync.sh",
             "reboot": false,
             "tags": [
                 "launchsync"
             ]
         },
         "Scripts/playlog.sh": {
-            "hash": "9ef1f1a015d0d9f560c55ea1be6e33ba",
+            "hash": "703d0543e64c5fd929e69304cb8cdcd5",
             "size": 7586820,
-            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-4/playlog.sh",
+            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-5/playlog.sh",
             "reboot": false,
             "tags": [
                 "playlog"
             ]
         },
         "Scripts/random.sh": {
-            "hash": "3c110fa343034ecebeb39838937155fc",
-            "size": 2780168,
-            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-4/random.sh",
+            "hash": "01579f3aa6a3028229de7e53bfa376c4",
+            "size": 2780176,
+            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-5/random.sh",
             "reboot": false,
             "tags": [
                 "random"
             ]
         },
         "Scripts/remote.sh": {
-            "hash": "8a4d9d5fbef1bc33d3f7a409525f8350",
-            "size": 6851868,
-            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-4/remote.sh",
+            "hash": "5357c53c3eb2d465a03b4ef95ab7ef15",
+            "size": 8065704,
+            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-5/remote.sh",
             "reboot": true,
             "tags": [
                 "remote"
             ]
         },
         "Scripts/search.sh": {
-            "hash": "78660d74435d7d7c9554a3d1633633d4",
+            "hash": "cd761b3686f3d3d8de2b1a71bf93b706",
             "size": 3762560,
-            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-4/search.sh",
+            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-5/search.sh",
             "reboot": false,
             "tags": [
                 "search"
@@ -68,7 +68,7 @@
         "Scripts/pocketbackup.sh": {
             "hash": "148e98551ca2bd5401f5b1f5c6082780",
             "size": 10802,
-            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-4/pocketbackup.sh",
+            "url": "https://github.com/wizzomafizzo/mrext/releases/download/v20260612-5/pocketbackup.sh",
             "reboot": false,
             "tags": [
                 "pocketbackup"
