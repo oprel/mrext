@@ -331,6 +331,14 @@ func Release(name string) {
 		os.Exit(1)
 	}
 
+	if name == "remote" {
+		clientIndex := filepath.Join(cwd, "cmd", "remote", "_client", "build", "index.html")
+		if _, err := os.Stat(clientIndex); err != nil {
+			fmt.Println("Remote client build missing", clientIndex)
+			os.Exit(1)
+		}
+	}
+
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm" {
 		Build(name)
 	} else {
