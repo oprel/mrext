@@ -177,7 +177,23 @@ func TrySetupArcadeCoresLink(path string) error {
 		return fmt.Errorf("parent is not a directory: %s", path)
 	}
 
-	coresLinkPath := filepath.Join(path, filepath.Base(config.ArcadeCoresFolder))
+	// MiSTer looks for the cores in the outermost folder that starts with '_'
+	rootFolder := path
+	current := path
+
+	for {
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+
+		if s.HasPrefix(filepath.Base(parent), "_") {
+			rootFolder = parent
+		}
+		current = parent
+	}
+
+	coresLinkPath := filepath.Join(rootFolder, filepath.Base(config.ArcadeCoresFolder))
 	coresLink, err := os.Lstat(coresLinkPath)
 
 	coresLinkExists := false
@@ -194,28 +210,18 @@ func TrySetupArcadeCoresLink(path string) error {
 		return err
 	}
 
-	files, err := os.ReadDir(path)
+	anyArcadeCores, err := HasAnyArcadeCores(rootFolder)
+
 	if err != nil {
 		return err
 	}
 
-	mraCount := 0
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-
-		if s.HasSuffix(s.ToLower(file.Name()), ".mra") {
-			mraCount++
-		}
-	}
-
-	if mraCount > 0 && !coresLinkExists {
+	if anyArcadeCores && !coresLinkExists {
 		err = os.Symlink(config.ArcadeCoresFolder, coresLinkPath)
 		if err != nil {
 			return err
 		}
-	} else if mraCount == 0 && coresLinkExists {
+	} else if !anyArcadeCores && coresLinkExists {
 		err = os.Remove(coresLinkPath)
 		if err != nil {
 			return err
@@ -223,6 +229,32 @@ func TrySetupArcadeCoresLink(path string) error {
 	}
 
 	return nil
+}
+
+func HasAnyArcadeCores(path string) (bool, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false, err
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			found, err := HasAnyArcadeCores(filepath.Join(path, e.Name()))
+			if err != nil {
+				return false, err
+			}
+			if found {
+				return true, nil
+			}
+			continue
+		}
+
+		if s.HasSuffix(s.ToLower(e.Name()), ".mra") {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func DeleteLauncher(path string) error {
