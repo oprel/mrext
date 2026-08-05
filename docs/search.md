@@ -1,5 +1,8 @@
 # Search
 
+> [!IMPORTANT]
+> Search is maintained for its controller-driven stock-OSD workflow. Before using it for new MiSTer search or library work, consider Core's media index and `media.search`, `zaparoo-cli media search`, or the search interfaces in App, Web UI, and Frontend. See [MIGRATE.md](../MIGRATE.md).
+
 <img src="images/search.gif"/>
 
 Search is an application to *search* for games on your MiSTer. It indexes all your games, lets you enter search queries without a keyboard, and then displays a list of results that can be launched directly.

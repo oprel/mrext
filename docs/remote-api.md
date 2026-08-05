@@ -1,5 +1,8 @@
 # Remote API
 
+> [!IMPORTANT]
+> This API is maintained for legacy Remote clients and is not compatible with the Zaparoo Core API. Before building a new MiSTer integration against it, review the public Core WebSocket JSON-RPC API and `@zaparoo/cli` mappings in [MIGRATE.md](../MIGRATE.md). Migrating requires translating calls, not pointing an existing client at a new port.
+
 <!-- TOC -->
 * [Remote API](#remote-api)
   * [REST](#rest)

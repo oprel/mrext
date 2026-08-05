@@ -20,3 +20,4 @@ scripts/kernelbuild/_build
 cmd/vplay/_player/*
 !cmd/vplay/_player/README
 .DS_Store
+.pi/

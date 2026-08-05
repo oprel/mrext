@@ -1,5 +1,8 @@
 # MiSTer Extensions
 
+> [!IMPORTANT]
+> mrext is maintained for legacy users. Before starting or extending a MiSTer project with mrext, review the current Zaparoo replacements in [MIGRATE.md](MIGRATE.md). Existing installations can keep working, and mrext can remain appropriate where Zaparoo does not replace the required stock-MiSTer workflow.
+
 Extensions and utilities to make your [MiSTer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) even better.
 
 Make sure to check the linked documentation for each script you use. Most are simple and work out-of-the-box, but some require manual setup before they do anything useful.

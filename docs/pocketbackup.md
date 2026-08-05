@@ -1,5 +1,8 @@
 # PocketBackup
 
+> [!IMPORTANT]
+> The standalone mrext PocketBackup installation is deprecated because Pocket Backup is built into [Update All](https://github.com/theypsilon/Update_All_MiSTer). Use the **Analogue Pocket** menu in Update All to run it on demand or during a normal update. This is not replaced by Zaparoo device backups. See [MIGRATE.md](../MIGRATE.md).
+
 PocketBackup is a simple utility to backup the following files from an Analogue Pocket to your MiSTer via USB:
 
 - Saves

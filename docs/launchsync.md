@@ -1,5 +1,8 @@
 # LaunchSync
 
+> [!IMPORTANT]
+> LaunchSync is maintained for `.sync` files and stock-menu shortcuts. Before creating a new shared MiSTer list with it, consider Online cards and decks, Zap Links, self-hosted Zap Link servers, or Zaparoo playlists. Keep LaunchSync when subscribed `.mgl` folders are required. See [MIGRATE.md](../MIGRATE.md).
+
 LaunchSync allows people to create, share and maintain live-updating game playlists for the MiSTer.
 
 You create a [sync file](#sync-files) with a list of games, someone copies the file to their MiSTer, and LaunchSync will use it to generate a working list of game shortcuts in the MiSTer main menu. Sync files are subscriptable, so you can publish changes to your playlist and people will see your updates on their own system.

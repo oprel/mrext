@@ -1,3 +1,4 @@
+// Deprecated: for new MiSTer integrations, consider the maintained Zaparoo replacements in https://github.com/wizzomafizzo/mrext/blob/main/MIGRATE.md.
 module github.com/wizzomafizzo/mrext
 
 go 1.18

@@ -1,5 +1,8 @@
 # Random
 
+> [!IMPORTANT]
+> Random is maintained for Scripts-menu use. Before adding it to a new MiSTer workflow, consider ZapScript `launch.random`, which supports one or more systems, equal system weighting, search patterns, and tags. Keep Random when its Scripts-menu wrapper or unmatched command-line flags are required. See [MIGRATE.md](../MIGRATE.md).
+
 Random is a simple application for launching a game at random from your MiSTer's collection.
 
 <a href="https://github.com/wizzomafizzo/mrext/releases/latest/download/random.sh"><img src="images/download.svg" alt="Download Random" title="Download Random" width="140"></a>

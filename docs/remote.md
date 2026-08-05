@@ -1,5 +1,8 @@
 # Remote
 
+> [!IMPORTANT]
+> Remote is maintained for legacy users. Before building a new MiSTer remote control with it, consider Zaparoo App/Web UI, Frontend, or the public Core API and CLI. Remote can remain appropriate for stock-menu file management, wallpaper browsing, arbitrary `MiSTer.ini` editing, and other gaps listed in [MIGRATE.md](../MIGRATE.md).
+
 Remote is a web-based interface with a stack of modern features to manage all aspects of your MiSTer. Can be used from your phone, tablet or computer.
 
 <a href="https://github.com/wizzomafizzo/mrext/releases/latest/download/remote.sh"><img src="images/download.svg" alt="Download Remote" title="Download Remote" width="140"></a>

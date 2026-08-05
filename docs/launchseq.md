@@ -1,5 +1,8 @@
 # LaunchSeq
 
+> [!IMPORTANT]
+> LaunchSeq remains available for its timed regression and rotation workflow. Zaparoo playlists can sequence or shuffle media, but there is no direct replacement for LaunchSeq's offset and fixed-delay runner. See [MIGRATE.md](../MIGRATE.md).
+
 LaunchSeq is a tool to launch games in alphabetical or random order, and automatically swap to the next game after a set amount of time. Instead of regression testing an entire library by manually loading and selecting each game, let LaunchSeq handle that for you and enjoy the show!
 
 <a href="https://github.com/wizzomafizzo/mrext/releases/latest/download/launchseq.sh"><img src="images/download.svg" alt="Download LaunchSeq" title="Download LaunchSeq" width="140"></a>

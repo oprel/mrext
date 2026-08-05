@@ -1,5 +1,8 @@
 # Developer Guide
 
+> [!IMPORTANT]
+> This guide documents legacy mrext development. Before using or extending mrext for new MiSTer work, read [MIGRATE.md](../MIGRATE.md) to see whether current Zaparoo features provide a maintained replacement. mrext can still be appropriate where the migration guide records a gap, especially for stock-MiSTer workflows that do not use Zaparoo Core.
+
 MiSTer Extensions is a single Go project that outputs multiple individual binary applications. The goal of the project is to create a unified library to manage all aspects of a MiSTer system, and offer a set of modular applications that create a rich user experience for the MiSTer userspace.
 
 Applications should:
