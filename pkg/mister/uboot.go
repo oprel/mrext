@@ -1,17 +1,33 @@
+// mrext
+// Copyright (c) 2026 mrext contributors.
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// This file is part of mrext.
+//
+// mrext is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// mrext is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with mrext. If not, see <http://www.gnu.org/licenses/>.
+
 package mister
 
 import (
 	"fmt"
-	"github.com/wizzomafizzo/mrext/pkg/config"
 	"os"
-	"regexp"
 	"strings"
+
+	"github.com/wizzomafizzo/mrext/pkg/config"
 )
 
-const (
-	UBootMACParam    = "ethaddr"
-	UBootKernelParam = "v"
-)
+const UBootMACParam = "ethaddr"
 
 func ReadUBootParams() (map[string]string, error) {
 	params := make(map[string]string)
@@ -19,8 +35,9 @@ func ReadUBootParams() (map[string]string, error) {
 	data, err := os.ReadFile(config.UBootConfigFile)
 	if os.IsNotExist(err) {
 		return params, nil
-	} else if err != nil {
-		return params, err
+	}
+	if err != nil {
+		return params, fmt.Errorf("read U-Boot configuration: %w", err)
 	}
 
 	for _, line := range strings.Split(string(data), "\n") {
@@ -33,20 +50,16 @@ func ReadUBootParams() (map[string]string, error) {
 
 		parts := strings.SplitN(line, "=", 2)
 
-		key := parts[0]
-		key = strings.TrimSpace(key)
-
-		value := parts[1]
-		value = strings.TrimSpace(value)
-
-		params[parts[0]] = parts[1]
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		params[key] = value
 	}
 
 	return params, nil
 }
 
 func WriteUBootParams(params map[string]string) error {
-	var pairs []string
+	pairs := make([]string, 0, len(params))
 
 	for key, value := range params {
 		pairs = append(pairs, fmt.Sprintf("%s=%s", key, value))
@@ -57,53 +70,17 @@ func WriteUBootParams(params map[string]string) error {
 	if _, err := os.Stat(config.UBootConfigFile); err == nil {
 		err = os.Rename(config.UBootConfigFile, config.UBootConfigFile+".backup")
 		if err != nil {
-			return err
+			return fmt.Errorf("back up U-Boot configuration: %w", err)
 		}
 	}
 
-	err := os.WriteFile(config.UBootConfigFile, []byte(content), 0644)
+	// #nosec G306 -- U-Boot configuration must remain readable by MiSTer services.
+	err := os.WriteFile(config.UBootConfigFile, []byte(content), 0o644)
 	if err != nil {
-		return err
+		return fmt.Errorf("write U-Boot configuration: %w", err)
 	}
 
 	return nil
-}
-
-func parseKernelArgs(input string) map[string]string {
-	args := make(map[string]string)
-
-	re := regexp.MustCompile(`([\w_\-.]+)="(.*?)"|([\w_\-.]+)=(\S+)`)
-	matches := re.FindAllStringSubmatch(input, -1)
-
-	for _, match := range matches {
-		param := match[1] + match[3]
-		value := match[2] + match[4]
-
-		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
-			value = strings.Trim(value, "\"")
-		}
-
-		args[param] = value
-	}
-
-	return args
-}
-
-func makeKernelArgs(params map[string]string) string {
-	var pairs []string
-
-	for key, value := range params {
-		// if the value contains spaces, quote it
-		if strings.Contains(value, " ") {
-			value = fmt.Sprintf("\"%s\"", value)
-		}
-
-		pairs = append(pairs, fmt.Sprintf("%s=%s", key, value))
-	}
-
-	content := strings.Join(pairs, " ")
-
-	return content
 }
 
 // GetConfiguredMacAddress returns the ethernet MAC address configured in the u-boot.txt file, if available.
@@ -131,77 +108,4 @@ func UpdateConfiguredMacAddress(newMacAddress string) error {
 	params[UBootMACParam] = newMacAddress
 
 	return WriteUBootParams(params)
-}
-
-func GetUsbHidQuirks() ([]string, error) {
-	params, err := ReadUBootParams()
-	if err != nil {
-		return nil, err
-	}
-
-	args := make(map[string]string)
-	if v, ok := params[UBootKernelParam]; ok {
-		args = parseKernelArgs(v)
-	}
-
-	if v, ok := args["usbhid.quirks"]; ok {
-		return strings.Split(v, ","), nil
-	}
-
-	return nil, nil
-}
-
-func UpdateUsbHidQuirks(quirks []string) error {
-	params, err := ReadUBootParams()
-	if err != nil {
-		return err
-	}
-
-	args := make(map[string]string)
-	if v, ok := params[UBootKernelParam]; ok {
-		args = parseKernelArgs(v)
-	}
-
-	args["usbhid.quirks"] = strings.Join(quirks, ",")
-	params[UBootKernelParam] = makeKernelArgs(args)
-
-	return WriteUBootParams(params)
-}
-
-func EnableFastUsbPoll() error {
-	params, err := ReadUBootParams()
-	if err != nil {
-		return err
-	}
-
-	args := make(map[string]string)
-	if v, ok := params[UBootKernelParam]; ok {
-		args = parseKernelArgs(v)
-	}
-
-	args["loglevel"] = "4"
-	args["usbhid.jspoll"] = "1"
-	args["xpad.cpoll"] = "1"
-
-	params[UBootKernelParam] = makeKernelArgs(args)
-
-	return WriteUBootParams(params)
-}
-
-func IsFastUsbPollActive() (bool, error) {
-	params, err := ReadUBootParams()
-	if err != nil {
-		return false, err
-	}
-
-	args := make(map[string]string)
-	if v, ok := params[UBootKernelParam]; ok {
-		args = parseKernelArgs(v)
-	}
-
-	if _, ok := args["usbhid.jspoll"]; ok {
-		return true, nil
-	}
-
-	return false, nil
 }

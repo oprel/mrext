@@ -11,44 +11,27 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
-	"strings"
 
 	_ "github.com/joho/godotenv/autoload"
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
-
-	"github.com/wizzomafizzo/mrext/pkg/games"
-	"github.com/wizzomafizzo/mrext/pkg/utils"
 )
 
 var (
-	cwd, _           = os.Getwd()
-	binDir           = filepath.Join(cwd, "_bin")
-	binReleasesDir   = filepath.Join(binDir, "releases")
-	releasesDir      = filepath.Join(cwd, "releases")
-	releaseUrlPrefix = "https://github.com/wizzomafizzo/mrext/releases/latest/download"
-	docsDir          = filepath.Join(cwd, "docs")
-	upxBin           = os.Getenv("UPX_BIN")
-	// docker arm build
-	armBuild          = filepath.Join(cwd, "scripts", "armbuild")
-	armBuildImageName = "mrext/armbuild"
-	armBuildCache     = filepath.Join(os.TempDir(), "mrext-buildcache")
-	armModCache       = filepath.Join(os.TempDir(), "mrext-modcache")
-	// docker kernel build
-	kernelBuild          = filepath.Join(cwd, "scripts", "kernelbuild")
-	kernelBuildImageName = "mrext/kernelbuild"
-	kernelRepoName       = "Linux-Kernel_MiSTer"
-	kernelRepoPath       = filepath.Join(kernelBuild, "_build", kernelRepoName)
-	kernelRepoUrl        = fmt.Sprintf("https://github.com/MiSTer-devel/%s.git", kernelRepoName)
+	cwd, _                  = os.Getwd()
+	binDir                  = filepath.Join(cwd, "_bin")
+	binReleasesDir          = filepath.Join(binDir, "releases")
+	releasesDir             = filepath.Join(cwd, "releases")
+	releaseUrlPrefix        = "https://github.com/wizzomafizzo/mrext/releases/latest/download"
+	generatedSystemMetadata = filepath.Join(cwd, "pkg", "games", "system_metadata.gen.json")
+	upxBin                  = os.Getenv("UPX_BIN")
 )
 
 type app struct {
 	name         string
 	path         string
 	bin          string
-	ldFlags      string
 	releaseId    string
 	reboot       bool
 	inAll        bool
@@ -56,11 +39,6 @@ type app struct {
 }
 
 var apps = []app{
-	{
-		name: "background",
-		path: filepath.Join(cwd, "cmd", "background"),
-		bin:  "background",
-	},
 	{
 		name: "contool",
 		path: filepath.Join(cwd, "cmd", "contool"),
@@ -70,16 +48,9 @@ var apps = []app{
 		name:      "remote",
 		path:      filepath.Join(cwd, "cmd", "remote"),
 		bin:       "remote.sh",
-		ldFlags:   "-lcurses",
 		releaseId: "mrext/remote",
 		reboot:    true,
 		inAll:     true,
-	},
-	{
-		name: "favorites",
-		path: filepath.Join(cwd, "cmd", "favorites"),
-		bin:  "addfav",
-		// releaseId: "mrext/favorites",
 	},
 	{
 		name:      "lastplayed",
@@ -96,28 +67,14 @@ var apps = []app{
 		inAll:     true,
 	},
 	{
-		name:         "nfc",
-		path:         filepath.Join(cwd, "cmd", "nfc"),
-		bin:          "nfc.sh",
-		ldFlags:      "-lnfc -lusb -lcurses",
-		releaseFiles: []string{filepath.Join(cwd, "scripts", "nfcui", "nfcui.sh")},
-	},
-	{
 		name: "samindex",
 		path: filepath.Join(cwd, "cmd", "samindex"),
 		bin:  "samindex",
 	},
 	{
-		name: "screenshots",
-		path: filepath.Join(cwd, "cmd", "screenshots"),
-		bin:  "screenshots.sh",
-		// releaseId: "mrext/screenshots",
-	},
-	{
 		name:      "search",
 		path:      filepath.Join(cwd, "cmd", "search"),
 		bin:       "search.sh",
-		ldFlags:   "-lcurses",
 		releaseId: "mrext/search",
 		inAll:     true,
 	},
@@ -129,27 +86,11 @@ var apps = []app{
 		inAll:     true,
 	},
 	{
-		name:      "launchseq",
-		path:      filepath.Join(cwd, "cmd", "launchseq"),
-		bin:       "launchseq.sh",
-		releaseId: "mrext/launchseq",
-	},
-	{
 		name:      "playlog",
 		path:      filepath.Join(cwd, "cmd", "playlog"),
 		bin:       "playlog.sh",
 		releaseId: "mrext/playlog",
 		inAll:     true,
-	},
-	{
-		name: "vplay",
-		path: filepath.Join(cwd, "cmd", "vplay"),
-		bin:  "vplay.sh",
-	},
-	{
-		name: "mm",
-		path: filepath.Join(cwd, "cmd", "mm"),
-		bin:  "mm",
 	},
 }
 
@@ -177,13 +118,6 @@ var externalApps = []externalApp{
 	},
 }
 
-var scriptApps = []externalApp{
-	{
-		name: "pocketbackup",
-		bin:  "pocketbackup.sh",
-	},
-}
-
 func getApp(name string) *app {
 	for _, a := range apps {
 		if a.name == name {
@@ -199,61 +133,63 @@ func cleanPlatform(name string) {
 
 func Clean() {
 	_ = sh.Rm(binDir)
-	_ = sh.Rm(armBuildCache)
-	_ = sh.Rm(armModCache)
-	_ = sh.Rm(kernelRepoPath)
+	_ = sh.Rm(generatedSystemMetadata)
 }
 
-func buildApp(a app, out string) {
-	if a.ldFlags == "" {
-		env := map[string]string{
-			"GOPROXY": "https://goproxy.io,direct",
-		}
-		_ = sh.RunWithV(env, "go", "build", "-o", out, a.path)
-	} else {
-		staticEnv := map[string]string{
-			"GOPROXY":     "https://goproxy.io,direct",
-			"CGO_ENABLED": "1",
-			"CGO_LDFLAGS": a.ldFlags,
-		}
-		_ = sh.RunWithV(staticEnv, "go", "build", "--ldflags", "-linkmode external -extldflags -static", "-o", out, a.path)
+func GenerateSystemMetadata() error {
+	return sh.RunV("go", "run", "./internal/gensystemmetadata")
+}
+
+func buildApp(a app, out string, env map[string]string) error {
+	if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
+		return err
 	}
+	buildEnv := map[string]string{
+		"CGO_ENABLED": "0",
+		"GOPROXY":     "https://proxy.golang.org,direct",
+	}
+	for key, value := range env {
+		buildEnv[key] = value
+	}
+	return sh.RunWithV(buildEnv, "go", "build", "-trimpath", "-o", out, a.path)
 }
 
-func Build(appName string) {
-	platform := runtime.GOOS + "_" + runtime.GOARCH
+func buildApps(appName, platform string, env map[string]string) error {
 	if appName == "all" {
-		mg.Deps(func() { cleanPlatform(platform) })
-		for _, app := range apps {
-			fmt.Println("Building", app.name)
-			buildApp(app, filepath.Join(binDir, platform, app.bin))
+		cleanPlatform(platform)
+		for _, application := range apps {
+			fmt.Println("Building", application.name)
+			if err := buildApp(application, filepath.Join(binDir, platform, application.bin), env); err != nil {
+				return err
+			}
 		}
-	} else {
-		app := getApp(appName)
-		if app == nil {
-			fmt.Println("Unknown app", appName)
-			os.Exit(1)
-		}
-		buildApp(*app, filepath.Join(binDir, platform, app.bin))
+		return nil
 	}
+	application := getApp(appName)
+	if application == nil {
+		return fmt.Errorf("unknown app: %s", appName)
+	}
+	return buildApp(*application, filepath.Join(binDir, platform, application.bin), env)
 }
 
-func MakeArmImage() {
-	_ = sh.RunV("docker", "build", "--platform", "linux/arm/v7", "-t", armBuildImageName, armBuild)
+func Build(appName string) error {
+	mg.Deps(GenerateSystemMetadata)
+	platform := runtime.GOOS + "_" + runtime.GOARCH
+	return buildApps(appName, platform, nil)
 }
 
-func Mister(appName string) {
-	buildCache := fmt.Sprintf("%s:%s", armBuildCache, "/home/build/.cache/go-build")
-	_ = os.Mkdir(armBuildCache, 0755)
-	modCache := fmt.Sprintf("%s:%s", armModCache, "/home/build/go/pkg/mod")
-	_ = os.Mkdir(armModCache, 0755)
-	buildDir := fmt.Sprintf("%s:%s", cwd, "/build")
-	_ = sh.RunV("docker", "run", "--rm", "--platform", "linux/arm/v7", "-v", buildCache, "-v", modCache, "-v", buildDir, "--user", "1000:1000", armBuildImageName, "mage", "build", appName)
+func Mister(appName string) error {
+	mg.Deps(GenerateSystemMetadata)
+	return buildApps(appName, "linux_arm", map[string]string{
+		"GOOS":   "linux",
+		"GOARCH": "arm",
+		"GOARM":  "7",
+	})
 }
 
 func UpdateExternalApps() {
 	externalDir := filepath.Join(releasesDir, "external")
-	_ = os.MkdirAll(externalDir, 0755)
+	_ = os.MkdirAll(externalDir, 0o755)
 	for _, app := range externalApps {
 		resp, err := http.Get(app.url)
 		if err != nil || resp.StatusCode != 200 {
@@ -339,15 +275,14 @@ func Release(name string) {
 		}
 	}
 
-	if runtime.GOOS == "linux" && runtime.GOARCH == "arm" {
-		Build(name)
-	} else {
-		Mister(name)
+	if err := Mister(name); err != nil {
+		fmt.Println("Error building MiSTer binary", err)
+		os.Exit(1)
 	}
 
 	rd := filepath.Join(releasesDir, a.name)
-	_ = os.MkdirAll(rd, 0755)
-	_ = os.MkdirAll(binReleasesDir, 0755)
+	_ = os.MkdirAll(rd, 0o755)
+	_ = os.MkdirAll(binReleasesDir, 0o755)
 	releaseBin := filepath.Join(binReleasesDir, a.bin)
 	err := sh.Copy(releaseBin, filepath.Join(binDir, "linux_arm", a.bin))
 	if err != nil {
@@ -368,7 +303,7 @@ func Release(name string) {
 		os.Exit(1)
 	} else {
 		if runtime.GOOS != "windows" {
-			err := os.Chmod(releaseBin, 0755)
+			err := os.Chmod(releaseBin, 0o755)
 			if err != nil {
 				fmt.Println("Error chmod release bin", err)
 				os.Exit(1)
@@ -385,17 +320,13 @@ func Release(name string) {
 
 func PrepRelease() {
 	_ = sh.Rm(binReleasesDir)
-	_ = os.MkdirAll(binReleasesDir, 0755)
+	_ = os.MkdirAll(binReleasesDir, 0o755)
 	cleanPlatform("linux_arm")
 	for _, app := range apps {
 		if app.releaseId != "" {
 			fmt.Println("Preparing release:", app.name)
 			Release(app.name)
 		}
-	}
-	for _, app := range scriptApps {
-		fmt.Println("Preparing release:", app.name)
-		sh.Copy(filepath.Join(binReleasesDir, app.bin), filepath.Join(cwd, "scripts", app.name, app.bin))
 	}
 	UpdateExternalApps()
 	for _, app := range externalApps {
@@ -404,168 +335,29 @@ func PrepRelease() {
 	}
 }
 
-func MakeKernelImage() {
-	_ = sh.RunV("docker", "build", "-t", kernelBuildImageName, kernelBuild)
-}
-
-func Kernel() {
-	if _, err := os.Stat(kernelRepoPath); os.IsNotExist(err) {
-		_ = sh.RunV("git", "clone", "--depth", "1", kernelRepoUrl, kernelRepoPath)
-	}
-
-	patches, _ := filepath.Glob(filepath.Join(kernelBuild, "*.patch"))
-	for _, path := range patches {
-		_ = sh.RunV("git", "-C", kernelRepoPath, "apply", path)
-	}
-
-	kCmd := sh.RunCmd("docker", "run", "--rm", "-v", fmt.Sprintf("%s:%s", kernelRepoPath, "/build"), "--user", "1000:1000", kernelBuildImageName)
-	_ = kCmd("make", "MiSTer_defconfig")
-	_ = kCmd("make", "modules")
-	_ = kCmd("make", "-j16", "zImage")
-	_ = kCmd("make", "socfpga_cyclone5_de10_nano.dtb")
-
-	zImage, _ := os.Open(filepath.Join(kernelRepoPath, "arch", "arm", "boot", "zImage"))
-	dtb, _ := os.Open(filepath.Join(kernelRepoPath, "arch", "arm", "boot", "dts", "socfpga_cyclone5_de10_nano.dtb"))
-
-	_ = os.MkdirAll(filepath.Join(binDir, "linux"), 0755)
-	kernel, _ := os.Create(filepath.Join(binDir, "linux", "zImage_dtb"))
-
-	_, _ = io.Copy(kernel, zImage)
-	_, _ = io.Copy(kernel, dtb)
-
-	_ = kernel.Close()
-	_ = dtb.Close()
-	_ = zImage.Close()
-}
-
-func MakeArmApp(name string) {
-	buildScript := name + ".sh"
-	if _, err := os.Stat(filepath.Join(armBuild, buildScript)); os.IsNotExist(err) {
-		fmt.Println("No build script for", name)
-		os.Exit(1)
-	}
-
-	buildDir := filepath.Join(armBuild, "_build")
-	_ = os.MkdirAll(buildDir, 0755)
-
-	err := sh.Copy(filepath.Join(buildDir, buildScript), filepath.Join(armBuild, buildScript))
-	if err != nil {
-		fmt.Println("Error copying build script", err)
-		os.Exit(1)
-	}
-
-	_ = sh.RunV("docker", "run", "--rm", "--platform", "linux/arm/v7", "-v", buildDir+":/build", "--user", "1000:1000", armBuildImageName, "bash", "./"+buildScript)
-}
-
 func Test() {
+	mg.Deps(GenerateSystemMetadata)
 	_ = sh.RunV("go", "test", "./...")
 }
 
+func Lint() error {
+	mg.Deps(GenerateSystemMetadata)
+	return sh.RunV("golangci-lint", "run", "./...")
+}
+
+func LintFix() error {
+	mg.Deps(GenerateSystemMetadata)
+	return sh.RunV("golangci-lint", "run", "--fix", "./...")
+}
+
 func Coverage() {
+	mg.Deps(GenerateSystemMetadata)
 	_ = sh.RunV("go", "test", "-coverprofile", "coverage.out", "./...")
 	_ = sh.RunV("go", "tool", "cover", "-html", "coverage.out")
 	_ = sh.Rm("coverage.out")
 }
 
 func GenSystemsDoc() {
-	var systems []games.System
-	for _, s := range games.Systems {
-		systems = append(systems, s)
-	}
-
-	sort.Slice(systems, func(i, j int) bool {
-		return systems[i].Name < systems[j].Name
-	})
-
-	md := "<!--- This file is automatically generated. Do not edit. --->\n\n"
-	md += "# Systems\n\n"
-	md += "This is a list of all systems supported by the MiSTer Extensions scripts. Please [open an issue](https://github.com/wizzomafizzo/mrext/issues/new) if a system is missing or not working.\n\n"
-
-	var tocConsole []string
-	var tocComputer []string
-	var tocOther []string
-
-	for _, s := range systems {
-		tocAnchor := "#" + strings.ReplaceAll(strings.ToLower(s.Name), " ", "-")
-		tocAnchor = utils.StripChars(tocAnchor, "()/")
-		tocLink := fmt.Sprintf("[%s](%s)", s.Name, tocAnchor)
-
-		if strings.HasPrefix(s.Rbf, "_Console") {
-			tocConsole = append(tocConsole, tocLink)
-		} else if strings.HasPrefix(s.Rbf, "_Computer") {
-			tocComputer = append(tocComputer, tocLink)
-		} else {
-			tocOther = append(tocOther, tocLink)
-		}
-	}
-
-	md += "**Consoles:** " + fmt.Sprintln(strings.Join(tocConsole, ", ")) + "\n\n"
-	md += "**Computers:** " + fmt.Sprintln(strings.Join(tocComputer, ", ")) + "\n\n"
-	md += "**Other:** " + fmt.Sprintln(strings.Join(tocOther, ", ")) + "\n\n"
-
-	md += "## Core Groups\n"
-	md += "Core groups are aliases to multiple systems. They work as system IDs for all configuration options where a user must type a system ID manually. MiSTer Extensions differentiates between systems more than MiSTer itself, and these are included as a convenience so system folder names can still be used as IDs.\n\n"
-	md += "| ID | Systems |\n| --- | --- |\n"
-	cg := utils.MapKeys(games.CoreGroups)
-	sort.Strings(cg)
-	for _, k := range cg {
-		var syss []string
-		for _, s := range games.CoreGroups[k] {
-			tocLink := "#" + strings.ReplaceAll(strings.ToLower(s.Name), " ", "-")
-			syss = append(syss, fmt.Sprintf("[%s](%s)", s.Name, tocLink))
-		}
-		md += fmt.Sprintf("| %s | %s |\n", k, strings.Join(syss, ", "))
-	}
-
-	for _, s := range systems {
-		md += fmt.Sprintln("\n##", s.Name)
-
-		var info []string
-
-		info = append(info, fmt.Sprintf("**ID**: %s ", s.Id))
-
-		if len(s.Alias) > 0 {
-			aliases := strings.Join(s.Alias, ", ")
-			info = append(info, fmt.Sprintf("**Aliases**: %s ", aliases))
-		}
-
-		info = append(info, fmt.Sprintf("**Folders**: %s", strings.Join(s.Folder, ", ")))
-		info = append(info, fmt.Sprintf("**RBF**: %s", s.Rbf))
-
-		md += "\n" + strings.Join(info, " | ") + "\n\n"
-
-		if len(s.Slots) > 0 {
-			md += fmt.Sprintf("\n| Label | Files | Delay | Type | Index |\n| --- | --- | --- | --- | --- |\n")
-
-			for _, f := range s.Slots {
-				files := "-"
-				if len(f.Exts) > 0 {
-					files = strings.Join(f.Exts, ", ")
-				}
-
-				label := "-"
-				delay := "-"
-				fileType := "-"
-				index := "-"
-
-				if f.Label != "" {
-					label = f.Label
-				}
-
-				if f.Mgl != nil {
-					delay = fmt.Sprintf("%d", f.Mgl.Delay)
-					fileType = f.Mgl.Method
-					index = fmt.Sprintf("%d", f.Mgl.Index)
-				}
-
-				md += fmt.Sprintf("| %s | %s | %s | %s | %s |\n", label, files, delay, fileType, index)
-			}
-		}
-
-		md += "\n[Back to top](#systems)\n"
-	}
-
-	fp, _ := os.Create(filepath.Join(docsDir, "systems.md"))
-	_, _ = fp.WriteString(md)
-	_ = fp.Close()
+	mg.Deps(GenerateSystemMetadata)
+	_ = sh.RunV("go", "run", "./internal/gensystemsdoc")
 }

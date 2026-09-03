@@ -1,99 +1,90 @@
+// mrext
+// Copyright (c) 2026 mrext contributors.
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// This file is part of mrext.
+//
+// mrext is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// mrext is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with mrext. If not, see <http://www.gnu.org/licenses/>.
+
 package main
 
 import (
 	"fmt"
-	"github.com/rthornton128/goncurses"
-	"github.com/wizzomafizzo/mrext/pkg/config"
-	"github.com/wizzomafizzo/mrext/pkg/curses"
-	"github.com/wizzomafizzo/mrext/pkg/mister"
-	"github.com/wizzomafizzo/mrext/pkg/service"
-	"github.com/wizzomafizzo/mrext/pkg/utils"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+	"github.com/wizzomafizzo/mrext/pkg/config"
+	"github.com/wizzomafizzo/mrext/pkg/mister"
+	"github.com/wizzomafizzo/mrext/pkg/service"
+	"github.com/wizzomafizzo/mrext/pkg/tui"
+	"github.com/wizzomafizzo/mrext/pkg/utils"
 )
 
-func tryAddStartup(stdscr *goncurses.Window) error {
+func tryAddStartup() error {
 	var startup mister.Startup
-
-	err := startup.Load()
-	if err != nil {
+	if err := startup.Load(); err != nil {
 		logger.Error("failed to load startup file: %s", err)
 	}
-
-	if !startup.Exists("mrext/" + appName) {
-		win, err := curses.NewWindow(stdscr, 6, 43, "", -1)
-		if err != nil {
-			return err
-		}
-		defer func(win *goncurses.Window) {
-			err := win.Delete()
-			if err != nil {
-				logger.Error("failed to delete window: %s", err)
-			}
-		}(win)
-
-		var ch goncurses.Key
-		selected := 0
-
-		for {
-			win.MovePrint(1, 3, "Add Remote service to MiSTer startup?")
-			win.MovePrint(2, 2, "This won't impact MiSTer's performance.")
-			curses.DrawActionButtons(win, []string{"Yes", "No"}, selected, 10)
-
-			win.NoutRefresh()
-			err := goncurses.Update()
-			if err != nil {
-				return err
-			}
-
-			ch = win.GetChar()
-
-			if ch == goncurses.KEY_LEFT {
-				if selected == 0 {
-					selected = 1
-				} else if selected == 1 {
-					selected = 0
-				}
-			} else if ch == goncurses.KEY_RIGHT {
-				if selected == 0 {
-					selected = 1
-				} else if selected == 1 {
-					selected = 0
-				}
-			} else if ch == goncurses.KEY_ENTER || ch == 10 || ch == 13 {
-				break
-			} else if ch == goncurses.KEY_ESC {
-				selected = 1
-				break
-			}
-		}
-
-		if selected == 0 {
-			err = startup.AddService("mrext/" + appName)
-			if err != nil {
-				return err
-			}
-
-			err = startup.Save()
-			if err != nil {
-				return err
-			}
-		}
+	if startup.Exists("mrext/" + appName) {
+		return nil
 	}
 
+	addService := false
+	builder := func() (*tview.Application, error) {
+		app := tview.NewApplication()
+		modal := tview.NewModal().
+			SetText("Add Remote service to MiSTer startup?\nThis won't impact MiSTer's performance.").
+			AddButtons([]string{"Yes", "No"}).
+			SetDoneFunc(func(_ int, label string) {
+				addService = label == "Yes"
+				app.Stop()
+			})
+		app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+			if event.Key() == tcell.KeyEscape {
+				app.Stop()
+				return nil
+			}
+			return event
+		})
+		return app.SetRoot(modal, true).SetFocus(modal), nil
+	}
+	if err := tui.BuildAndRetry(builder); err != nil {
+		return fmt.Errorf("show startup prompt: %w", err)
+	}
+	if !addService {
+		return nil
+	}
+	if err := startup.AddService("mrext/" + appName); err != nil {
+		return fmt.Errorf("add Remote startup service: %w", err)
+	}
+	if err := startup.Save(); err != nil {
+		return fmt.Errorf("save startup configuration: %w", err)
+	}
 	return nil
 }
 
-func tryNonInteractiveAddToStartup(print bool) {
+func tryNonInteractiveAddToStartup(printOutput bool) {
 	var startup mister.Startup
 
 	err := startup.Load()
 	if err != nil {
 		logger.Error("failed to load startup file: %s", err)
-		if print {
-			fmt.Printf("Failed to load startup file: %s\n", err)
+		if printOutput {
+			_, _ = fmt.Printf("Failed to load startup file: %s\n", err)
 		}
 		return
 	}
@@ -102,8 +93,8 @@ func tryNonInteractiveAddToStartup(print bool) {
 		err = startup.AddService("mrext/" + appName)
 		if err != nil {
 			logger.Error("failed to add to startup: %s", err)
-			if print {
-				fmt.Printf("Failed to add to startup: %s\n", err)
+			if printOutput {
+				_, _ = fmt.Printf("Failed to add to startup: %s\n", err)
 			}
 			return
 		}
@@ -111,14 +102,14 @@ func tryNonInteractiveAddToStartup(print bool) {
 		err = startup.Save()
 		if err != nil {
 			logger.Error("failed to save startup: %s", err)
-			if print {
-				fmt.Printf("Failed to save startup: %s\n", err)
+			if printOutput {
+				_, _ = fmt.Printf("Failed to save startup: %s\n", err)
 			}
 			return
 		}
 
-		if print {
-			fmt.Println("Added Remote to MiSTer startup.")
+		if printOutput {
+			_, _ = fmt.Println("Added Remote to MiSTer startup.")
 		}
 	}
 }
@@ -128,150 +119,125 @@ const (
 	displayUninstall
 )
 
-func displayServiceInfo(stdscr *goncurses.Window, service *service.Service, cfg *config.UserConfig) (int, error) {
-	width := 57
-	height := 11
-
-	win, err := curses.NewWindow(stdscr, height, width, "", -1)
-	if err != nil {
-		return displayNothing, err
-	}
-	defer func(win *goncurses.Window) {
-		err := win.Delete()
-		if err != nil {
-			logger.Error("failed to delete window: %s", err)
-		}
-	}(win)
-
-	printCenter := func(y int, text string) {
-		x := (width - len(text)) / 2
-		win.MovePrint(y, x, text)
-	}
-
-	clearLine := func(y int) {
-		win.MovePrint(y, 2, strings.Repeat(" ", width-4))
-	}
-
-	ip, err := utils.GetLocalIp()
-	appUrl := ""
+func displayServiceInfo(svc *service.Service, cfg *config.UserConfig) (int, error) {
+	ip, err := utils.GetLocalIP()
+	appURL := fmt.Sprintf("http://<MiSTer IP>:%d", appPort)
 	if err != nil {
 		logger.Error("could not get local ip: %s", err)
-		appUrl = fmt.Sprintf("http://<MiSTer IP>:%d", appPort)
 	} else {
-		appUrl = fmt.Sprintf("http://%s:%d", ip, appPort)
+		appURL = fmt.Sprintf("http://%s:%d", ip, appPort)
 	}
-
-	altUrl := ""
-	if cfg.Remote.MdnsService {
+	altURL := ""
+	if cfg.Remote.MDNSService {
 		hostname, _ := os.Hostname()
-		altUrl = "OR " + fmt.Sprintf("http://%s.local:%d", hostname, appPort)
+		altURL = fmt.Sprintf("OR http://%s.local:%d", hostname, appPort)
 	}
 
-	var ch goncurses.Key
 	selected := 3
+	action := displayNothing
+	builder := func() (*tview.Application, error) {
+		app := tview.NewApplication()
+		status := tview.NewTextView().SetTextAlign(tview.AlignCenter)
+		footer := tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
+		content := tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(status, 0, 1, false).
+			AddItem(footer, 1, 0, false)
+		content.SetBorder(true)
 
-	for {
-		var statusText string
-		var toggleText string
-		running := service.Running()
-		if running {
-			statusText = "Service is RUNNING"
-			toggleText = "Stop"
-		} else {
-			statusText = "Service is NOT RUNNING"
-			toggleText = "Start"
-		}
-
-		clearLine(1)
-		printCenter(1, statusText)
-		clearLine(3)
-		clearLine(4)
-		clearLine(6)
-		if running {
-			printCenter(3, "Access Remote with this URL:")
-			printCenter(4, appUrl)
-			printCenter(5, altUrl)
-			printCenter(7, "It's safe to exit, the service will continue running.")
-		}
-
-		clearLine(8)
-		curses.DrawActionButtons(win, []string{toggleText, "Restart", "Uninstall", "Exit"}, selected, 1)
-
-		win.NoutRefresh()
-		err := goncurses.Update()
-		if err != nil {
-			return displayNothing, err
-		}
-
-		ch = win.GetChar()
-
-		if ch == goncurses.KEY_LEFT {
-			if selected == 0 {
-				selected = 3
-			} else {
-				selected--
+		draw := func() {
+			running := svc.Running()
+			state := "Service is NOT RUNNING"
+			toggle := "Start"
+			message := state
+			if running {
+				state = "Service is RUNNING"
+				toggle = "Stop"
+				message = fmt.Sprintf(
+					"%s\n\nAccess Remote with this URL:\n%s\n%s\n\n"+
+						"It's safe to exit; service will continue running.",
+					state,
+					appURL,
+					altURL,
+				)
 			}
-		} else if ch == goncurses.KEY_RIGHT {
-			if selected == 3 {
-				selected = 0
-			} else {
-				selected++
-			}
-		} else if ch == goncurses.KEY_ENTER || ch == 10 || ch == 13 {
-			if selected == 0 {
-				if service.Running() {
-					err := service.Stop()
-					if err != nil {
-						logger.Error("could not stop service: %s", err)
+			status.SetText(message)
+			footer.SetText(tui.ButtonBar([]string{toggle, "Restart", "Uninstall", "Exit"}, selected))
+		}
+		draw()
+
+		app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+			switch event.Key() {
+			case tcell.KeyEscape:
+				app.Stop()
+				return nil
+			case tcell.KeyLeft:
+				selected = (selected + 3) % 4
+				draw()
+				return nil
+			case tcell.KeyRight:
+				selected = (selected + 1) % 4
+				draw()
+				return nil
+			case tcell.KeyEnter:
+				switch selected {
+				case 0:
+					if svc.Running() {
+						err = svc.Stop()
+					} else {
+						err = svc.Start()
 					}
-				} else {
-					err := service.Start()
 					if err != nil {
-						logger.Error("could not start service: %s", err)
+						logger.Error("could not toggle service: %s", err)
 					}
+					time.Sleep(time.Second)
+					draw()
+				case 1:
+					if err = svc.Restart(); err != nil {
+						logger.Error("could not restart service: %s", err)
+					}
+					time.Sleep(time.Second)
+					draw()
+				case 2:
+					action = displayUninstall
+					app.Stop()
+				case 3:
+					app.Stop()
 				}
-				time.Sleep(1 * time.Second)
-			} else if selected == 1 {
-				err := service.Restart()
-				if err != nil {
-					logger.Error("could not restart service: %s", err)
-				}
-				time.Sleep(1 * time.Second)
-			} else if selected == 2 {
-				return displayUninstall, nil
-			} else {
-				break
+				return nil
+			default:
+				return event
 			}
-		} else if ch == goncurses.KEY_ESC {
-			break
-		}
+		})
+		return app.SetRoot(tui.Centered(57, 11, content), true), nil
 	}
-
-	return displayNothing, nil
+	if err := tui.BuildAndRetry(builder); err != nil {
+		return displayNothing, fmt.Errorf("show service controls: %w", err)
+	}
+	return action, nil
 }
 
-func displayNonInteractiveServiceInfo(service *service.Service) {
-	ip, err := utils.GetLocalIp()
-	appUrl := ""
+func displayNonInteractiveServiceInfo(svc *service.Service) {
+	ip, err := utils.GetLocalIP()
+	appURL := ""
 	if err != nil {
 		logger.Error("could not get local ip: %s", err)
-		appUrl = fmt.Sprintf("http://<MiSTer IP>:%d", appPort)
+		appURL = fmt.Sprintf("http://<MiSTer IP>:%d", appPort)
 	} else {
-		appUrl = fmt.Sprintf("http://%s:%d", ip, appPort)
+		appURL = fmt.Sprintf("http://%s:%d", ip, appPort)
 	}
 
 	var statusText string
-	running := service.Running()
+	running := svc.Running()
 	if running {
 		statusText = "Service is RUNNING."
 	} else {
 		statusText = "Service is NOT RUNNING."
 	}
 
-	fmt.Println(statusText)
-	fmt.Println("Access Remote with this URL:")
-	fmt.Println(appUrl)
-	fmt.Println("It's safe to exit, the service will continue running.")
+	_, _ = fmt.Println(statusText)
+	_, _ = fmt.Println("Access Remote with this URL:")
+	_, _ = fmt.Println(appURL)
+	_, _ = fmt.Println("It's safe to exit, the service will continue running.")
 }
 
 func removeFromStartup() error {
@@ -280,7 +246,7 @@ func removeFromStartup() error {
 	err := startup.Load()
 	if err != nil {
 		logger.Error("failed to load startup: %s", err)
-		return err
+		return fmt.Errorf("load startup configuration: %w", err)
 	}
 
 	startupName := "mrext/" + appName
@@ -289,13 +255,13 @@ func removeFromStartup() error {
 		err := startup.Remove(startupName)
 		if err != nil {
 			logger.Error("failed to remove startup: %s", err)
-			return err
+			return fmt.Errorf("remove Remote startup service: %w", err)
 		}
 
 		err = startup.Save()
 		if err != nil {
 			logger.Error("failed to save startup: %s", err)
-			return err
+			return fmt.Errorf("save startup configuration: %w", err)
 		}
 	}
 
@@ -303,36 +269,34 @@ func removeFromStartup() error {
 }
 
 func uninstallService(svc *service.Service) {
-	fmt.Println("Uninstalling MiSTer Remote...")
+	_, _ = fmt.Println("Uninstalling MiSTer Remote...")
 
 	if svc.Running() {
 		err := svc.Stop()
 		if err != nil {
 			logger.Error("failed to stop service: %s", err)
 		} else {
-			fmt.Println("Stopped service.")
+			_, _ = fmt.Println("Stopped service.")
 		}
 	}
 
 	err := removeFromStartup()
 	if err != nil {
 		logger.Error("failed to remove from startup: %s", err)
-		fmt.Println("Error removing from startup:", err)
+		_, _ = fmt.Println("Error removing from startup:", err)
 		os.Exit(1)
-	} else {
-		fmt.Println("Removed from MiSTer startup.")
 	}
+	_, _ = fmt.Println("Removed from MiSTer startup.")
 
 	searchDbPath := filepath.Join(config.SdFolder, "search.db")
-	if _, err := os.Stat(searchDbPath); err == nil {
+	if _, statErr := os.Stat(searchDbPath); statErr == nil {
 		err = os.Remove(searchDbPath)
 		if err != nil {
 			logger.Error("failed to remove search db file: %s", err)
-			fmt.Println("Error removing search db file:", err)
+			_, _ = fmt.Println("Error removing search db file:", err)
 			os.Exit(1)
-		} else {
-			fmt.Println("Removed search.db file.")
 		}
+		_, _ = fmt.Println("Removed search.db file.")
 	}
 
 	menuJpgPath := filepath.Join(config.SdFolder, "menu.jpg")
@@ -341,11 +305,10 @@ func uninstallService(svc *service.Service) {
 		err = os.Remove(menuJpgPath)
 		if err != nil {
 			logger.Error("failed to remove menu.jpg symlink: %s", err)
-			fmt.Println("Error removing menu.jpg symlink:", err)
+			_, _ = fmt.Println("Error removing menu.jpg symlink:", err)
 			os.Exit(1)
-		} else {
-			fmt.Println("Removed menu.jpg symlink.")
 		}
+		_, _ = fmt.Println("Removed menu.jpg symlink.")
 	}
 
 	menuPngPath := filepath.Join(config.SdFolder, "menu.png")
@@ -354,12 +317,11 @@ func uninstallService(svc *service.Service) {
 		err = os.Remove(menuPngPath)
 		if err != nil {
 			logger.Error("failed to remove menu.png symlink: %s", err)
-			fmt.Println("Error removing menu.png symlink:", err)
+			_, _ = fmt.Println("Error removing menu.png symlink:", err)
 			os.Exit(1)
-		} else {
-			fmt.Println("Removed menu.png symlink.")
 		}
+		_, _ = fmt.Println("Removed menu.png symlink.")
 	}
 
-	fmt.Println("Uninstall complete.")
+	_, _ = fmt.Println("Uninstall complete.")
 }
